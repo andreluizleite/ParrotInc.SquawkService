@@ -1,0 +1,9 @@
+graph TD;
+    A[API] -->|HTTP Requests| B[Application Service]
+    B --> C[Domain Service]
+    B --> D[Infrastructure]
+    C --> E[Database]
+    D --> E
+    E -->|Data| F[NoSQL Database]
+    F -->|Events| G[Event Store]
+    A --> H[Frontend Client]
