@@ -1,0 +1,10 @@
+namespace ParrotInc.SquawkService.Tests;
+
+public class UnitTest1
+{
+    [Fact]
+    public void Test1()
+    {
+
+    }
+}
