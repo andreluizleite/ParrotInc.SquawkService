@@ -1,7 +1,10 @@
 ﻿using Moq;
 using ParrotInc.SquawkService.Domain.Entities;
-using ParrotInc.SquawkService.Application.Services;
 using ParrotInc.SquawkService.Domain.Interfaces;
+using ParrotInc.SquawkService.Application.CommandHandlers;
+using ParrotInc.SquawkService.Application.Commands;
+using Castle.Core.Logging;
+using Microsoft.Extensions.Logging;
 
 public class SquawkAppServiceTests
 {
@@ -17,6 +20,9 @@ public class SquawkAppServiceTests
         //Events
         var eventMock = new Mock<IEventPublisher>();
 
+        //Logger
+        var logger = new Mock<ILogger<CreateSquawkCommandHandler>>();
+
         var expectedSquawk = await Squawk.CreateSquawkAsync(userId, content, eventMock.Object);
 
         // Set up the mock to return a squawk when CreateSquawkAsync is called
@@ -24,15 +30,15 @@ public class SquawkAppServiceTests
             .Setup(service => service.CreateSquawkAsync(userId, content))
             .ReturnsAsync(expectedSquawk);
 
-        var appService = new SquawkAppService(mockSquawkDomainService.Object);
+        var appHandler = new CreateSquawkCommandHandler(mockSquawkDomainService.Object, logger.Object);
+        CreateSquawkCommand command = new CreateSquawkCommand(userId, content);
 
         // Act
-        var result = await appService.CreateSquawkAsync(userId, content);
+        var result = await appHandler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(expectedSquawk.Id, result.Id);
-        Assert.Equal(expectedSquawk.Content, result.Content);
-        Assert.Equal(userId, result.Metadata.UserId);
+        Assert.Equal(expectedSquawk.Content, result.Squawk.Content);
+        Assert.Equal(userId, result.Squawk.UserId);
     }
 }

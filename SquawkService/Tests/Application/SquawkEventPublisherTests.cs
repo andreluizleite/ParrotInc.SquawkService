@@ -4,6 +4,9 @@ using ParrotInc.SquawkService.Domain.Entities;
 using ParrotInc.SquawkService.Domain.Interfaces;
 using ParrotInc.SquawkService.Domain.Events;
 using ParrotInc.SquawkService.Application.Services;
+using ParrotInc.SquawkService.Application.Commands;
+using ParrotInc.SquawkService.Application.CommandHandlers;
+using Microsoft.Extensions.Logging;
 
 public class SquawkEventPublisherTests
 {
@@ -19,6 +22,9 @@ public class SquawkEventPublisherTests
         // Create a mock for ISquawkAppService
         var mockSquawkDomainService = new Mock<ISquawkDomainService>();
 
+        //Logger
+        var logger = new Mock<ILogger<CreateSquawkCommandHandler>>();
+
         var squawkId = new SquawkId();
 
         var expectedSquawk = await Squawk.CreateSquawkAsync(userId, content, eventPublisher);
@@ -28,10 +34,11 @@ public class SquawkEventPublisherTests
             .Setup(service => service.CreateSquawkAsync(userId, content))
             .ReturnsAsync(expectedSquawk);
 
-        var appService = new SquawkAppService(mockSquawkDomainService.Object);
+        var appHandler = new CreateSquawkCommandHandler(mockSquawkDomainService.Object, logger.Object);
+        CreateSquawkCommand command = new CreateSquawkCommand(userId, content);
 
         // Act
-        var result = await appService.CreateSquawkAsync(userId, content);
+        var result = await appHandler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);

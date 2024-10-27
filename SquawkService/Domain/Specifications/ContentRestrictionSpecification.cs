@@ -10,7 +10,7 @@ namespace ParrotInc.SquawkService.Domain.Specifications
 
             // Check if the content contains the restricted words
             return !content.Contains("Tweet", StringComparison.OrdinalIgnoreCase) &&
-                   !content.Contains("Twitter", StringComparison.OrdinalIgnoreCase);
+                   !content.Contains("Twitter", StringComparison.OrdinalIgnoreCase) ? true : throw new ArgumentException("The Squawks containing restricted words."); ;
         }
     }
 }
