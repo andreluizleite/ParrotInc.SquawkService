@@ -8,7 +8,9 @@ using ParrotInc.SquawkService.Infrastructure.Repositories;
 using Microsoft.OpenApi.Models;
 using ParrotInc.SquawkService.Domain.Events;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using ParrotInc.SquawkService.Domain.Interfaces.ParrotInc.SquawkService.Domain.Services;
 
 namespace ParrotInc.SquawkService
 {
@@ -52,11 +54,31 @@ namespace ParrotInc.SquawkService
                 }
             });
 
+            // Policies
+            var retryPolicy = PolicyProvider.GetRetryPolicy();
+            var circuitBreakerPolicy = PolicyProvider.GetCircuitBreakerPolicy();
+
+            // Register the UserService with policies
+            services.AddHttpClient<IUserService, UserDomainService>()
+                .AddPolicyHandler(retryPolicy)
+                .AddPolicyHandler(circuitBreakerPolicy);
+
+            //Rate Limiting
+            services.AddRateLimiter(_ => _
+            .AddFixedWindowLimiter(policyName: "fixed", options =>
+            {
+                options.PermitLimit = 1;
+                options.Window = TimeSpan.FromSeconds(20);
+                options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                options.QueueLimit = 0;
+            }));
+
             //Event Handler
             services.AddScoped<IEventDatabaseService, EventDatabaseService>();
 
             //Database
             services.AddDbContext<MyDbContext>(options => options.UseInMemoryDatabase("SquawkEventDb"));
+            services.AddSingleton<ICacheService, FakeRedis>();
 
 
             services.AddCarter();
@@ -91,6 +113,7 @@ namespace ParrotInc.SquawkService
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseRateLimiter();
             app.UseSwagger();
             app.UseSwaggerUI(c =>
             {

@@ -15,7 +15,10 @@ namespace ParrotInc.SquawkService.Api
             group.MapPost("/", CreateSquawk)
             .WithName("CreateSquawk")
             .Produces<CreateSquawkResponse>(StatusCodes.Status201Created)
-            .Produces(StatusCodes.Status400BadRequest);
+            .Produces(StatusCodes.Status400BadRequest)
+            .RequireRateLimiting("fixed");
+
+            
         }
         public static async Task<IResult> CreateSquawk(CreateSquawkCommand command, IMediator mediator)
         {
