@@ -1,7 +1,6 @@
 using ParrotInc.SquawkService.Domain.Events;
 using ParrotInc.SquawkService.Domain.Interfaces;
 using ParrotInc.SquawkService.Domain.ValueObjects;
-using ParrotInc.SquawkService.Specifications;
 
 namespace ParrotInc.SquawkService.Domain.Entities
 {
@@ -17,22 +16,18 @@ namespace ParrotInc.SquawkService.Domain.Entities
             Metadata = metadata;
             Content = content;
         }
-        public static Squawk CreateSquawk(Guid userId, string content, IEnumerable<ISquawkSpecification> squawkSpecifications, IEventPublisher eventPublisher)
-        {
-            foreach (var specification in squawkSpecifications)
-            {
-                if (!specification.IsSatisfiedBy(content))
-                    throw new ArgumentNullException(nameof(content), "Content cannot be empty.");
-            }
 
+        public static async Task<Squawk> CreateSquawkAsync(Guid userId, string content, IEventPublisher eventPublisher)
+        {
             var squawkId = new SquawkId();
             var metadata = new SquawkMetadata(userId);
+            var squawk = new Squawk(squawkId, content, metadata);
 
             // Publish the event
             var squawkCreatedEvent = new SquawkCreatedEvent(squawkId, content, userId);
-            eventPublisher.Publish(squawkCreatedEvent);
+            await eventPublisher.Publish(new List<SquawkCreatedEvent> { squawkCreatedEvent });
 
-            return new Squawk(squawkId, content, metadata); 
+            return squawk;
         }
     }
 }

@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Application\ParrotInc.SquawkService.Application.csproj" />
+    <ProjectReference Include="..\Infrastructure\ParrotInc.SquawkService.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

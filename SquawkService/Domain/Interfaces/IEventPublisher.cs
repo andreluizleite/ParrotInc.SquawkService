@@ -1,9 +1,9 @@
-﻿using System;
-
-namespace ParrotInc.SquawkService.Domain.Interfaces
+﻿namespace ParrotInc.SquawkService.Domain.Interfaces
 {
     public interface IEventPublisher
     {
-        void Publish<T>(T domainEvent) where T : class;
+        Task Publish<TEvent>(IEnumerable<TEvent> events) where TEvent : IDomainEvent;
+
+        void RegisterEventHandler(Func<IDomainEvent, Task> handler);
     }
 }

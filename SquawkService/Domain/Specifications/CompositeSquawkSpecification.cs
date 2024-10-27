@@ -1,20 +1,23 @@
 ﻿using ParrotInc.SquawkService.Domain.Interfaces;
-public class CompositeSquawkSpecification : ISquawkSpecification
+namespace ParrotInc.SquawkService.Domain.Specifications
 {
-    private readonly IList<ISquawkSpecification> _specifications;
-
-    public CompositeSquawkSpecification()
+    public class CompositeSquawkSpecification : ISquawkSpecification
     {
-        _specifications = new List<ISquawkSpecification>();
-    }
+        private readonly IList<ISquawkSpecification> _specifications;
 
-    public void AddSpecification(ISquawkSpecification specification)
-    {
-        _specifications.Add(specification);
-    }
+        public CompositeSquawkSpecification()
+        {
+            _specifications = new List<ISquawkSpecification>();
+        }
 
-    public bool IsSatisfiedBy(string content)
-    {
-        return _specifications.All(spec => spec.IsSatisfiedBy(content));
+        public void AddSpecification(ISquawkSpecification specification)
+        {
+            _specifications.Add(specification);
+        }
+
+        public bool IsSatisfiedBy(string content)
+        {
+            return _specifications.All(spec => spec.IsSatisfiedBy(content));
+        }
     }
 }
