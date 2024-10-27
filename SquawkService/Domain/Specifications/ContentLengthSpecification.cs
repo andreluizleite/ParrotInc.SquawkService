@@ -12,7 +12,7 @@ namespace ParrotInc.SquawkService.Domain.Specifications
 
         public bool IsSatisfiedBy(string content)
         {
-            return content.Length <= _maxLength;
+            return content.Length <= _maxLength ? true : throw new ArgumentException("The Squiwk content exceeds 400 characters.");
         }
     }
 }

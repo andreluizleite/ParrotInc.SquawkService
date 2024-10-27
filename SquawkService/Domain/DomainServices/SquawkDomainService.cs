@@ -43,9 +43,6 @@ namespace ParrotInc.SquawkService.Domain.Services
 
             var squawk = await Squawk.CreateSquawkAsync(userId, content, _eventPublisher);
 
-            // Save the Squawk to the repository
-            //await _squawkRepository.AddAsync(squawk);
-
             return squawk;
         }
         private bool IsDuplicateSquawk(string hashKey)

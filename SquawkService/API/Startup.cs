@@ -11,6 +11,10 @@ using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using ParrotInc.SquawkService.Domain.Interfaces.ParrotInc.SquawkService.Domain.Services;
+using ParrotInc.SquawkService.Application.Logging;
+using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
+using System.Drawing;
 
 namespace ParrotInc.SquawkService
 {
@@ -18,11 +22,9 @@ namespace ParrotInc.SquawkService
     {
         public void ConfigureServices(IServiceCollection services)
         {
-
             // Register other services
             services.AddScoped<ISquawkRepository, SquawkRepository>();
             services.AddScoped<ISquawkDomainService, SquawkDomainService>();
-            services.AddScoped<ISquawkAppService, SquawkAppService>();
             // Register individual specifications
             services.AddScoped<ISquawkSpecification, ContentSpecification>();
             services.AddScoped<ISquawkSpecification, ContentRestrictionSpecification>();
@@ -80,6 +82,15 @@ namespace ParrotInc.SquawkService
             services.AddDbContext<MyDbContext>(options => options.UseInMemoryDatabase("SquawkEventDb"));
             services.AddSingleton<ICacheService, FakeRedis>();
 
+            // Configure Serilog
+            Log.Logger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .WriteTo.Console(theme: AnsiConsoleTheme.Literate)
+                .CreateLogger();
+
+            services.AddSingleton(LogManager.Instance);
+
+            services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog(dispose: true));
 
             services.AddCarter();
             services.AddEndpointsApiExplorer();
@@ -109,7 +120,6 @@ namespace ParrotInc.SquawkService
                 app.UseExceptionHandler("/Home/Error");
                 app.UseHsts();
             }
-
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
