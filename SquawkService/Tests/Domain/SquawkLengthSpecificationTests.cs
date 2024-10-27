@@ -1,5 +1,5 @@
 ﻿using ParrotInc.SquawkService.Domain.Interfaces;
-using ParrotInc.SquawkService.Specifications;
+using ParrotInc.SquawkService.Domain.Specifications;
 using Xunit;
 
 namespace ParrotInc.SquawkService.Tests.Domain.Specifications
@@ -11,7 +11,7 @@ namespace ParrotInc.SquawkService.Tests.Domain.Specifications
         {
             // Arrange
             var maxLength = 400;
-            var specification = new SquawkLengthSpecification(maxLength);
+            var specification = new ContentLengthSpecification(maxLength);
             var content = new string('a', 400); // Content exactly 400 characters long
 
             // Act
@@ -26,7 +26,7 @@ namespace ParrotInc.SquawkService.Tests.Domain.Specifications
         {
             // Arrange
             var maxLength = 400;
-            var specification = new SquawkLengthSpecification(maxLength);
+            var specification = new ContentLengthSpecification(maxLength);
             var content = new string('a', 401); // Content exceeding 400 characters
 
             // Act
@@ -41,7 +41,7 @@ namespace ParrotInc.SquawkService.Tests.Domain.Specifications
         {
             // Arrange
             var maxLength = 400;
-            var specification = new SquawkLengthSpecification(maxLength);
+            var specification = new ContentLengthSpecification(maxLength);
             var content = string.Empty; // Empty content
 
             // Act
@@ -55,7 +55,7 @@ namespace ParrotInc.SquawkService.Tests.Domain.Specifications
         public void IsSatisfiedBy_ContentSpecification_EmptyContent_ShouldReturnTrue()
         {
             // Arrange
-            var specification = new SquawkContentSpecification();
+            var specification = new ContentSpecification();
             var content = string.Empty; // Empty content
 
             // Act
