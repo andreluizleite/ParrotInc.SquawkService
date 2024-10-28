@@ -64,11 +64,8 @@ public class SquawkSpecificationTests
         var specification = new ContentRestrictionSpecification();
         var content = "This Squawk contains the word Tweet.";
 
-        // Act
-        var result = specification.IsSatisfiedBy(content);
-
-        // Assert
-        Assert.False(result);
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => specification.IsSatisfiedBy(content));
     }
 
     [Fact]
@@ -78,11 +75,8 @@ public class SquawkSpecificationTests
         var specification = new ContentRestrictionSpecification();
         var content = "This Squawk talks about Twitter.";
 
-        // Act
-        var result = specification.IsSatisfiedBy(content);
-
-        // Assert
-        Assert.False(result);
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => specification.IsSatisfiedBy(content));
     }
 
     [Fact]
