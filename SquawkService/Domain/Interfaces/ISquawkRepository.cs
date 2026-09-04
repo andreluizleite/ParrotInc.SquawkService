@@ -1,13 +1,18 @@
 using ParrotInc.SquawkService.Domain.Entities;
+using ParrotInc.SquawkService.Domain.ValueObjects;
 
-namespace ParrotInc.SquawkService.Domain.Interfaces
+namespace ParrotInc.SquawkService.Domain.Interfaces;
+
+public interface ISquawkRepository
 {
-    public interface ISquawkRepository
-    {
-        Task<Squawk> GetByIdAsync(SquawkId id);
-        Task<IEnumerable<Squawk>> GetAllAsync();
-        Task AddAsync(Squawk squawk);
-        Task UpdateAsync(Squawk squawk);
-        Task DeleteAsync(SquawkId id);
-    }
+    Task<Squawk?> GetByIdAsync(
+        SquawkId id,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<Squawk>> GetAllAsync(
+        CancellationToken cancellationToken = default);
+
+    Task AddAsync(
+        Squawk squawk,
+        CancellationToken cancellationToken = default);
 }

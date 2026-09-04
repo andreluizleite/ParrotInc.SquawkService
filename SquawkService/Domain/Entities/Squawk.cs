@@ -1,46 +1,51 @@
-using ParrotInc.SquawkService.Domain.Events;
-using ParrotInc.SquawkService.Domain.Interfaces;
-using ParrotInc.SquawkService.Domain.ValueObjects;
 using System.Security.Cryptography;
 using System.Text;
+using ParrotInc.SquawkService.Domain.Exceptions;
+using ParrotInc.SquawkService.Domain.ValueObjects;
 
-namespace ParrotInc.SquawkService.Domain.Entities
+namespace ParrotInc.SquawkService.Domain.Entities;
+
+public sealed class Squawk
 {
-    public class Squawk
+    private Squawk(
+        SquawkId id,
+        SquawkContent content,
+        SquawkMetadata metadata)
     {
-        public SquawkId Id { get; private set; }
-        public string Content { get; private set; }
-        public SquawkMetadata Metadata { get; private set; }
+        Id = id;
+        Content = content;
+        Metadata = metadata;
+    }
 
+    public SquawkId Id { get; }
 
-        private Squawk(SquawkId id, string content, SquawkMetadata metadata)
+    public SquawkContent Content { get; }
+
+    public SquawkMetadata Metadata { get; }
+
+    public static Squawk Create(
+        Guid userId,
+        string? content,
+        DateTimeOffset createdAt)
+    {
+        if (userId == Guid.Empty)
         {
-            Id = id;
-            Metadata = metadata;
-            Content = content;
+            throw new SquawkRuleViolationException(
+                "user_required",
+                "A valid user identifier is required.");
         }
 
-        public static async Task<Squawk> CreateSquawkAsync(Guid userId, string content, IEventPublisher eventPublisher)
-        {
-            var squawkId = new SquawkId();
-            var metadata = new SquawkMetadata(userId);
-            var squawk = new Squawk(squawkId, content, metadata);
+        return new Squawk(
+            SquawkId.New(),
+            SquawkContent.Create(content),
+            new SquawkMetadata(userId, createdAt));
+    }
 
-            // Publish the event
-            var squawkCreatedEvent = new SquawkCreatedEvent(squawkId, content, userId);
-            await eventPublisher.Publish(new List<SquawkCreatedEvent> { squawkCreatedEvent });
+    public static string GenerateContentHash(Guid userId, string content)
+    {
+        var normalized = $"{userId:N}:{content.Trim().ToUpperInvariant()}";
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
 
-            return squawk;
-        }
-        public static string GenerateHash(Guid userId, string content)
-        {
-            using (var sha256 = SHA256.Create())
-            {
-                var combinedBytes = Encoding.UTF8.GetBytes($"{userId}-{content}");
-                var hashBytes = sha256.ComputeHash(combinedBytes);
-
-                return Convert.ToBase64String(hashBytes);
-            }
-        }
+        return Convert.ToHexString(hash);
     }
 }

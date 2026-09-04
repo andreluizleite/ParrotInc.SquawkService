@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore locked dependencies
+        run: dotnet restore SquawkService.sln --locked-mode
+
+      - name: Verify formatting
+        run: dotnet format SquawkService.sln --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build SquawkService.sln --configuration Release --no-restore
+
+      - name: Test
+        run: >-
+          dotnet test SquawkService.sln
+          --configuration Release
+          --no-build
+          --collect:"XPlat Code Coverage"
+
+      - name: Audit dependencies
+        run: dotnet list SquawkService.sln package --vulnerable --include-transitive --no-restore
+
+      - name: Build container image
+        run: docker build --tag parrotinc-squawk-service:ci .

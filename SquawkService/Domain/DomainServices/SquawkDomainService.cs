@@ -1,57 +1,77 @@
 using ParrotInc.SquawkService.Domain.Entities;
+using ParrotInc.SquawkService.Domain.Events;
+using ParrotInc.SquawkService.Domain.Exceptions;
 using ParrotInc.SquawkService.Domain.Interfaces;
-using ParrotInc.SquawkService.Domain.Interfaces.ParrotInc.SquawkService.Domain.Services;
-using ParrotInc.SquawkService.Domain.Specifications;
 
-namespace ParrotInc.SquawkService.Domain.Services
+namespace ParrotInc.SquawkService.Domain.Services;
+
+public sealed class SquawkDomainService : ISquawkDomainService
 {
-    public class SquawkDomainService : ISquawkDomainService
-    {
-        private readonly ISquawkRepository _squawkRepository;
-        private readonly ICacheService _cacheService;
-        private readonly IEventPublisher _eventPublisher;
-        private readonly CompositeSquawkSpecification _compositeSpecification;
+    public static readonly TimeSpan PostingCooldown = TimeSpan.FromSeconds(20);
+    public static readonly TimeSpan DuplicateWindow = TimeSpan.FromHours(24);
 
-        public SquawkDomainService(
-            ISquawkRepository squawkRepository,
-            ICacheService cacheService,
-            IEventPublisher eventPublisher,
-            CompositeSquawkSpecification compositeSpecification)
+    private readonly ISquawkRepository _repository;
+    private readonly ICacheService _cache;
+    private readonly IEventPublisher _eventPublisher;
+    private readonly TimeProvider _timeProvider;
+
+    public SquawkDomainService(
+        ISquawkRepository repository,
+        ICacheService cache,
+        IEventPublisher eventPublisher,
+        TimeProvider timeProvider)
+    {
+        _repository = repository;
+        _cache = cache;
+        _eventPublisher = eventPublisher;
+        _timeProvider = timeProvider;
+    }
+
+    public async Task<Squawk> CreateSquawkAsync(
+        Guid userId,
+        string? content,
+        CancellationToken cancellationToken = default)
+    {
+        var now = _timeProvider.GetUtcNow();
+        var squawk = Squawk.Create(userId, content, now);
+        var duplicateKey = $"duplicate:{Squawk.GenerateContentHash(userId, squawk.Content.Value)}";
+        var cooldownKey = $"cooldown:{userId:N}";
+
+        if (!_cache.TryAdd(duplicateKey, "reserved", DuplicateWindow))
         {
-            _squawkRepository = squawkRepository;
-            _cacheService = cacheService;
-            _eventPublisher = eventPublisher;
-            _compositeSpecification = compositeSpecification;
+            throw new SquawkRuleViolationException(
+                "duplicate_squawk",
+                "The same user cannot submit duplicate content within 24 hours.");
         }
 
-        public async Task<Squawk> CreateSquawkAsync(Guid userId, string content)
+        if (!_cache.TryAdd(cooldownKey, "reserved", PostingCooldown))
         {
+            _cache.Delete(duplicateKey);
 
-            if (!_compositeSpecification.IsSatisfiedBy(content))
-            {
-                throw new ArgumentException("Content does not satisfy specifications.", nameof(content));
-            }
+            throw new SquawkRuleViolationException(
+                "posting_too_fast",
+                "The same user must wait 20 seconds before posting again.");
+        }
 
-            var expirationDate = DateTime.UtcNow.AddDays(1);
-            var hashKey = Squawk.GenerateHash(userId, content);
+        try
+        {
+            await _repository.AddAsync(squawk, cancellationToken);
 
-            if (IsDuplicateSquawk(hashKey))
-            {
-                throw new ArgumentException("The Squawk is duplicated.", nameof(content));
-            }
-            CacheSquawk(hashKey, expirationDate);
-
-            var squawk = await Squawk.CreateSquawkAsync(userId, content, _eventPublisher);
+            await _eventPublisher.PublishAsync(
+                new SquawkCreatedEvent(
+                    squawk.Id,
+                    squawk.Content.Value,
+                    squawk.Metadata.UserId,
+                    now),
+                cancellationToken);
 
             return squawk;
         }
-        private bool IsDuplicateSquawk(string hashKey)
+        catch
         {
-            return _cacheService.Get(hashKey) != null;
-        }
-        private void CacheSquawk(string hashKey, DateTime expirationDate)
-        {
-            _cacheService.Set(hashKey, expirationDate.ToLongTimeString());
+            _cache.Delete(duplicateKey);
+            _cache.Delete(cooldownKey);
+            throw;
         }
     }
 }

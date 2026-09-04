@@ -1,18 +1,8 @@
 using MediatR;
-using ParrotInc.SquawkService.Application.Responses;
-using System;
+using ParrotInc.SquawkService.Application.Dtos;
 
-namespace ParrotInc.SquawkService.Application.Commands
-{
-    public class CreateSquawkCommand : IRequest<CreateSquawkResponse>
-    {
-        public Guid UserId { get; }
-        public string Content { get; }
+namespace ParrotInc.SquawkService.Application.Commands;
 
-        public CreateSquawkCommand(Guid userId, string content)
-        {
-            UserId = userId;
-            Content = content;
-        }
-    }
-}
+public sealed record CreateSquawkCommand(
+    Guid UserId,
+    string? Content) : IRequest<SquawkDto>;

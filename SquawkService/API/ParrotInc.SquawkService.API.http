@@ -1,6 +1,17 @@
-@ParrotInc.SquawkService.API_HostAddress = http://localhost:5186
+@host = http://localhost:5194
+@userId = 1a9a269d-a6b9-4e22-9f99-b56283e7fe21
 
-GET {{ParrotInc.SquawkService.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Create a squawk
+POST {{host}}/api/squawks
+Content-Type: application/json
 
-###
+{
+  "userId": "{{userId}}",
+  "content": "A short engineering note."
+}
+
+### List squawks
+GET {{host}}/api/squawks
+
+### Liveness
+GET {{host}}/health/live

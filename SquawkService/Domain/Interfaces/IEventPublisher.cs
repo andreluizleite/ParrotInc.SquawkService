@@ -1,9 +1,8 @@
-﻿namespace ParrotInc.SquawkService.Domain.Interfaces
-{
-    public interface IEventPublisher
-    {
-        Task Publish<TEvent>(IEnumerable<TEvent> events) where TEvent : IDomainEvent;
+namespace ParrotInc.SquawkService.Domain.Interfaces;
 
-        void RegisterEventHandler(Func<IDomainEvent, Task> handler);
-    }
+public interface IEventPublisher
+{
+    Task PublishAsync(
+        IDomainEvent domainEvent,
+        CancellationToken cancellationToken = default);
 }
