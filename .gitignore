@@ -38,3 +38,4 @@ packages/
 # Coverlet coverage reports
 coverage/
 coverage.opencover.xml
+TestResults/

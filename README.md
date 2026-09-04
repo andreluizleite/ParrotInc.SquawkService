@@ -1,171 +1,134 @@
-***********************************************************************************************************************************
-API: POST http://localhost:5186/api/squawks
+# ParrotInc SquawkService
 
-BODY
+A focused .NET service that demonstrates how deterministic business rules, CQRS, domain modeling, and concurrency-safe in-memory infrastructure can work together without unnecessary distributed-system complexity.
+
+The fictional ParrotInc platform allows users to publish short messages called **squawks**.
+
+## Business rules
+
+- Content is required and is trimmed before persistence.
+- A squawk can contain at most 400 characters.
+- The terms `Tweet` and `Twitter` are restricted, case-insensitively.
+- The same user must wait 20 seconds between different squawks.
+- The same user cannot submit the same normalized content within 24 hours.
+- Rule violations are deterministic and return stable error codes through Problem Details.
+
+These rules are enforced in the domain and infrastructure boundary, not delegated to controllers or an AI model.
+
+## Technical highlights
+
+- .NET 10 and ASP.NET Core Minimal APIs
+- Domain-oriented model with value objects and explicit rule exceptions
+- CQRS request handling with MediatR
+- Thread-safe in-memory repository and expiring key store
+- Atomic duplicate and per-user cooldown reservations
+- Deterministic, testable domain-event publication
+- RFC 9457-style Problem Details responses
+- API-level abuse protection with ASP.NET Core rate limiting
+- Health check endpoint
+- Unit and in-process API integration tests
+- Central NuGet package management and dependency lock files
+- Docker and GitHub Actions CI
+- Dependabot dependency automation
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Client --> API[Minimal API endpoints]
+    API --> Mediator[MediatR]
+    Mediator --> Commands[Command handlers]
+    Mediator --> Queries[Query handlers]
+    Commands --> Domain[Domain service and value objects]
+    Queries --> Repository[In-memory repository]
+    Domain --> Repository
+    Domain --> Guard[Expiring key store]
+    Domain --> Events[Domain event publisher]
+```
+
+The repository and expiring key store are registered as singletons intentionally. They represent the process-local infrastructure of this sample and preserve state across HTTP requests.
+
+## API
+
+### Create a squawk
+
+```http
+POST /api/squawks
+Content-Type: application/json
+
 {
-    "userId": "1a9a269d-a6b9-4e22-9f99-b56283e7fe21",
-    "content": "This is a test squawk."
+  "userId": "1a9a269d-a6b9-4e22-9f99-b56283e7fe21",
+  "content": "A short engineering note."
 }
-***********************************************************************************************************************************
- 
- # ParrotInc.SquawkService
+```
 
-***********************************************************************************************************************************
+Successful requests return `201 Created` and a location header for the new resource.
 
-Break Down the Project into tasks:
+### List squawks
 
-* User Story 1: Setup Project Structure
-As a developer, I want to set up the project structure so that the code is organized and maintainable.
+```http
+GET /api/squawks
+```
 
-Tasks:
-Create a solution file for the project.
-Create project files for the SquawkService.
-Organize folders for Domain, Application, Infrastructure, and API layers.
+### Get a squawk by identifier
 
-* User Story 2: Define the Domain
-As a developer, I want to define the domain entities and value objects to represent the core business logic.
+```http
+GET /api/squawks/{squawkId}
+```
 
-Tasks:
-Create the Squawk entity class with properties.
-Define value objects.
-Create domain services for business rules.
+### Health check
 
-* User Story 3: Implement Application Logic
-As a developer, I want to implement the application logic so that the API can handle requests effectively.
+```http
+GET /health/live
+```
 
-Tasks:
-Create command models for actions like adding a Squawk.
-Create query models if needed for retrieving Squawks.
-Implement command handlers.
-Implement query handlers for retrieving Squawks.
+## Error contract
 
-* User Story 4: Setup Infrastructure
-As a developer, I want to set up the infrastructure for data access and logging so that the application is robust.
+Domain-rule failures use Problem Details and include a stable `code` field:
 
-Tasks:
-Configure an in-memory database for testing purposes.
-Implement the repository pattern for data access.
-Set up a logging framework for the application.
+| Code | HTTP status | Meaning |
+| --- | ---: | --- |
+| `content_required` | 400 | Content was empty |
+| `content_too_long` | 400 | Content exceeded 400 characters |
+| `restricted_content` | 400 | Content included a restricted term |
+| `user_required` | 400 | The user identifier was empty |
+| `duplicate_squawk` | 409 | Duplicate content inside the 24-hour window |
+| `posting_too_fast` | 429 | The per-user 20-second cooldown is active |
 
-* User Story 5: Create API Layer
-As a developer, I want to define the API endpoints so that clients can interact with the service.
+The `posting_too_fast` response also includes `Retry-After: 20`.
 
-Tasks:
-Define API endpoints.
-Implement request models.
-Validate incoming requests according to specifications.
+## Run locally
 
-* User Story 6: Implement Rate Limiting
-As a developer, I want to enforce rate limiting to prevent users from posting too frequently.
+Prerequisites:
 
-Tasks:
-Create a mechanism to enforce the 20-second interval between Squawks.
-Store timestamps of the last Squawk for each user.
+- .NET 10 SDK
 
-* User Story 7: Handle Content Restrictions
-As a developer, I want to implement content restrictions to ensure that Squawks comply with guidelines.
+```powershell
+dotnet restore SquawkService.sln
+dotnet run --project SquawkService/API/ParrotInc.SquawkService.API.csproj
+```
 
-Tasks:
-Implement logic to reject Squawks containing “Tweet” or “Twitter.”
-Check for duplicate Squawks based on UserId and Squawk text.
+Open `http://localhost:5194/swagger`.
 
-* User Story 8: Write Unit Tests
-As a developer, I want to write unit tests to ensure that the application logic works correctly.
+## Run with Docker
 
-Tasks:
-Create unit tests for command handlers.
-Write tests for validation rules and restrictions.
+```powershell
+docker build -t parrotinc-squawk-service .
+docker run --rm -p 8080:8080 parrotinc-squawk-service
+```
 
-* User Story 9: Containerize the Application
-As a developer, I want to containerize the application to simplify deployment.
+Open `http://localhost:8080/swagger`.
 
-Tasks:
-Create a Dockerfile for the SquawkService.
-Write a Docker Compose file if needed for a multi-container setup.
+## Tests
 
-* User Story 10: Document the Project
-As a developer, I want to document the project so that other developers can understand and use it.
+```powershell
+dotnet test SquawkService.sln --configuration Release
+```
 
-Tasks:
-Create a README file with project overview.
-Document API endpoints and usage instructions.
+The test suite covers content invariants, duplicate detection, cooldown expiration, persistence, event publication, CQRS HTTP flows, Problem Details, and health checks.
 
+## Scope and trade-offs
 
-***********************************************************************************************************************************
-Non-Functional Requirements Implementation Details
-Architecture Overview
+This is an intentionally small portfolio service. It uses in-memory adapters so another developer can run it immediately without provisioning infrastructure.
 
-# Microservices: Each service will be independently deployable, allowing for isolated scaling and updates without affecting the entire application.
-DDD (Domain-Driven Design): Focus on creating a rich domain model. Use entities and value objects to encapsulate business logic, promoting a clear understanding of the business rules.
-Caching Strategy
-
-# In-Memory Cache: Use in-memory storage (like a dictionary or set) to hold frequently accessed data, enabling quick lookups. This cache will help minimize database queries for commonly requested data.
-Rate Limiting Cache: Implement an in-memory structure to store the timestamps of the last Squawk for each user. This will help enforce the 20-second posting interval, allowing for fast access without the need for persistent storage.
-Design Patterns
-
-# Repository Pattern: This pattern will be utilized to abstract the data access layer. It will provide a clear interface for data retrieval and manipulation, allowing the application to interact with data sources without knowing their details.
-CQRS (Command Query Responsibility Segregation): Separate the command (write) and query (read) operations. This approach improves performance and scalability, allowing the read model to be optimized independently of the write model.
-Rate Limiting Implementation
-
-# 20-Second Interval: Use timestamps stored in memory to track the last time a user posted. Implement logic that checks this timestamp against the current time before allowing a new Squawk. If the time difference is less than 20 seconds, reject the request.
-Thread Safety: Ensure that the in-memory storage is thread-safe to prevent race conditions when multiple requests attempt to read/write simultaneously. Use synchronization mechanisms to protect critical sections of the code.
-Content Restrictions
-
-# Validation: Implement checks to ensure that the Squawk text does not contain the words "Tweet" or "Twitter." If detected, reject the Squawk with an appropriate error message.
-Duplicate Check: Use a hashing strategy to create a unique identifier for each Squawk based on the combination of UserId and the Squawk text. Store these identifiers in an in-memory data structure to quickly check for duplicates. If a new Squawk generates the same hash as an existing one, reject it.
-Unit Testing and Quality Assurance
-
-# Testing Strategy: Develop a comprehensive testing strategy that includes unit tests for individual components and integration tests for interactions between them. This ensures that each part functions correctly and meets the overall application requirements.
-CI/CD Pipeline: Implement a Continuous Integration/Continuous Deployment pipeline to automate testing whenever code is committed. This ensures that any issues are caught early in the development process.
-Documentation and Usability
-
-# API Documentation: Use tools like Swagger to generate interactive API documentation. This will help other developers understand how to interact with the service and provide examples of requests and responses.
-Error Handling: Implement consistent error handling across the API. Provide meaningful error messages and status codes to help users understand what went wrong and how to fix it.
-
-***********************************************************************************************************************************
-
-Out of Scope
-API Gateway
-Not implementing an API Gateway.
-Benefits: Would manage authentication, logging, and routing in a real application.
-
-Distributed Caching
-Using in-memory caching only; no distributed cache.
-Limitation: Each container has its own cache, leading to redundancy.
-
-Complex Business Logic
-No advanced workflows or metrics.
-Focus: Basic Squawk management for now.
-
-Asynchronous Processing
-Not using message queues for processing.
-Limitation: This would improve responsiveness and decouple tasks in a larger system.
-
-Extensive Error Handling
-Basic error handling only.
-Future work: Enhance logging and response management for reliability.
-
-***********************************************************************************************************************************
-
-Premises
-Using NoSQL for the SquawkService is better because:
-
-Flexibility: Dynamic schema adapts to changing data structures.
-Scalability: Supports horizontal scaling for high user loads.
-Performance: Optimized for fast read/write operations.
-Unstructured Data: Easily handles varying data formats (text, images).
-Rapid Development: Allows quick iterations without strict schema constraints.
-Document Storage: Aligns well with storing Squawk data as documents.
-MongoDB, DynamoDB, and Cassandra are great options.
-
-I am not considering a graph database because it will bring more complex data relationships and implementation.
-
-I am not considering implementing a robust Kafka queue to handle high traffic of messages due to the added complexity and overhead it would introduce.
-
-I am not considering using a relational database (e.g., PostgreSQL) because it may impose rigid schema constraints and hinder rapid development.
-
-I am not considering using Redis as a primary data store due to its focus on caching rather than persistent storage.
-
-I am not considering using an API Gateway because it would add an extra layer of complexity and overhead that is not necessary for this project scope.
-
-This project does not represent a real scenario of Twitter; it is solely a design exercise to practice concepts and ideas.
+For a multi-instance production deployment, the repository and expiring key store would be replaced with persistent and distributed adapters, such as PostgreSQL and Redis. Reliable external event delivery would also require an outbox and a message broker. Those components are described as evolution paths rather than simulated with incomplete abstractions.

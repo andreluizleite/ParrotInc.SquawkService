@@ -1,44 +1,41 @@
+using System.Collections.Concurrent;
 using ParrotInc.SquawkService.Domain.Entities;
 using ParrotInc.SquawkService.Domain.Interfaces;
-using System.Collections.Concurrent;
+using ParrotInc.SquawkService.Domain.ValueObjects;
 
-namespace ParrotInc.SquawkService.Infrastructure.Repositories
+namespace ParrotInc.SquawkService.Infrastructure.Repositories;
+
+public sealed class SquawkRepository : ISquawkRepository
 {
-    public class SquawkRepository : ISquawkRepository
+    private readonly ConcurrentDictionary<SquawkId, Squawk> _squawks = new();
+
+    public Task<Squawk?> GetByIdAsync(
+        SquawkId id,
+        CancellationToken cancellationToken = default)
     {
-        private readonly ConcurrentDictionary<SquawkId, Squawk> _squawks = new();
+        _squawks.TryGetValue(id, out var squawk);
+        return Task.FromResult(squawk);
+    }
 
-        public Task<Squawk> GetByIdAsync(SquawkId id)
+    public Task<IReadOnlyCollection<Squawk>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyCollection<Squawk> squawks = _squawks.Values
+            .OrderByDescending(squawk => squawk.Metadata.CreatedAt)
+            .ToArray();
+
+        return Task.FromResult(squawks);
+    }
+
+    public Task AddAsync(
+        Squawk squawk,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_squawks.TryAdd(squawk.Id, squawk))
         {
-            _squawks.TryGetValue(id, out var squawk);
-            return Task.FromResult(squawk);
+            throw new InvalidOperationException($"Squawk {squawk.Id} already exists.");
         }
 
-        public Task<IEnumerable<Squawk>> GetAllAsync()
-        {
-            var allSquawks = _squawks.Values;
-            return Task.FromResult<IEnumerable<Squawk>>(allSquawks);
-        }
-
-        public Task AddAsync(Squawk squawk)
-        {
-            _squawks[squawk.Id] = squawk;
-            return Task.CompletedTask;
-        }
-
-        public Task UpdateAsync(Squawk squawk)
-        {
-            if (_squawks.ContainsKey(squawk.Id))
-            {
-                _squawks[squawk.Id] = squawk;
-            }
-            return Task.CompletedTask;
-        }
-
-        public Task DeleteAsync(SquawkId id)
-        {
-            _squawks.TryRemove(id, out _);
-            return Task.CompletedTask;
-        }
+        return Task.CompletedTask;
     }
 }
