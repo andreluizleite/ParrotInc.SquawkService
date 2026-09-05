@@ -1,5 +1,10 @@
 # ParrotInc SquawkService
 
+[![CI](https://github.com/andreluizleite/ParrotInc.SquawkService/actions/workflows/ci.yml/badge.svg)](https://github.com/andreluizleite/ParrotInc.SquawkService/actions/workflows/ci.yml)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+[![Release](https://img.shields.io/github/v/release/andreluizleite/ParrotInc.SquawkService)](https://github.com/andreluizleite/ParrotInc.SquawkService/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A focused .NET service that demonstrates how deterministic business rules, CQRS, domain modeling, and concurrency-safe in-memory infrastructure can work together without unnecessary distributed-system complexity.
 
 The fictional ParrotInc platform allows users to publish short messages called **squawks**.
@@ -47,6 +52,34 @@ flowchart LR
 ```
 
 The repository and expiring key store are registered as singletons intentionally. They represent the process-local infrastructure of this sample and preserve state across HTTP requests.
+
+### Concurrency-safe creation flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Handler as Create command handler
+    participant Guard as Atomic expiring-key guard
+    participant Domain
+    participant Repository
+
+    Client->>API: POST /api/squawks
+    API->>Handler: Send command
+    Handler->>Guard: Reserve cooldown and content keys
+    alt Reservation rejected
+        Guard-->>Handler: Duplicate or cooldown violation
+        Handler-->>API: Deterministic rule exception
+        API-->>Client: Problem Details (409 or 429)
+    else Reservation accepted
+        Handler->>Domain: Create validated squawk
+        Domain->>Repository: Persist in process-local store
+        Handler-->>API: Created squawk
+        API-->>Client: 201 Created
+    end
+```
+
+The reservation is atomic: concurrent requests from the same user cannot both pass the duplicate and cooldown checks. In a multi-instance deployment, this guard would move to a shared store such as Redis while the deterministic rule contract remained unchanged.
 
 ## API
 
